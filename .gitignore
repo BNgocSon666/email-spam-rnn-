@@ -1,0 +1,18 @@
+# Model files
+*.h5
+*.pickle
+
+# Generated plots
+*.png
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environment
+venv/
+env/
+
+# Dataset
+spam.csv
