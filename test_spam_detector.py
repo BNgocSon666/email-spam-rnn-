@@ -46,19 +46,40 @@ except:
     print("Could not load saved tokenizer, using new one")
     tokenizer = Tokenizer()
 
+class ScrollableFrame(ttk.Frame):
+    def __init__(self, container, *args, **kwargs):
+        super().__init__(container, *args, **kwargs)
+        canvas = tk.Canvas(self)
+        scrollbar = ttk.Scrollbar(self, orient="vertical", command=canvas.yview)
+        self.scrollable_frame = ttk.Frame(canvas)
+
+        self.scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+
+        canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
 class SpamDetectorGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("Spam Email Detector")
         self.root.geometry("600x700")
 
-        # Style
-        style = ttk.Style()
-        style.configure('TButton', padding=5)
-        style.configure('TLabel', padding=5)
+        # Load model and tokenizer
+        self.load_model()
 
-        # Input area
-        input_frame = ttk.Frame(root, padding="10")
+        # Create main UI
+        self.create_input_section()
+        self.create_result_section()
+        self.create_examples_section()
+
+    def create_input_section(self):
+        input_frame = ttk.Frame(self.root, padding="10")
         input_frame.pack(fill=tk.X)
         
         ttk.Label(input_frame, text="Enter email text:").pack()
@@ -68,13 +89,18 @@ class SpamDetectorGUI:
 
         ttk.Button(input_frame, text="Check Spam", command=self.check_spam).pack()
 
-        # Results area
-        self.result_frame = ttk.Frame(root, padding="10")
-        self.result_frame.pack(fill=tk.BOTH, expand=True)
+    def create_result_section(self):
+        self.result_frame = ttk.Frame(self.root, padding="10")
+        self.result_frame.pack(fill=tk.BOTH)
+        self.result_label = ttk.Label(self.result_frame, text="")
+        self.result_label.pack()
 
-        # Example emails
-        examples_frame = ttk.LabelFrame(root, text="Example Emails", padding="10")
+    def create_examples_section(self):
+        examples_frame = ttk.LabelFrame(self.root, text="Example Emails", padding="10")
         examples_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
+        
+        scrollable_frame = ScrollableFrame(examples_frame)
+        scrollable_frame.pack(fill=tk.BOTH, expand=True)
 
         example_emails = [
             "Congratulations! You've won $1 million in our promotion!",
@@ -82,60 +108,79 @@ class SpamDetectorGUI:
             "URGENT: Your account has been compromised. Click here to verify.",
             "Here are the documents you requested for the project.",
             "HOT: Investment opportunity with 500% monthly returns!",
-            "Weekly progress report shows 80% completion of planned tasks."
+            "Weekly progress report shows 80% completion of planned tasks.",
+            "Make money fast! Work from home opportunity!",
+            "Meeting reminder: Project status update at 2 PM",
+            "Your package has been delivered",
+            "WINNER!! You've been selected for a special prize!"
         ]
 
         for email in example_emails:
-            ttk.Button(examples_frame, text="Try", 
-                      command=lambda e=email: self.load_example(e)).pack(anchor='w')
-            ttk.Label(examples_frame, text=email, wraplength=500).pack(anchor='w', pady=2)
+            email_frame = ttk.Frame(scrollable_frame.scrollable_frame)
+            email_frame.pack(fill=tk.X, pady=2)
+            
+            ttk.Button(
+                email_frame, 
+                text="Try", 
+                command=lambda e=email: self.load_example(e)
+            ).pack(side=tk.LEFT, padx=(0, 5))
+            
+            ttk.Label(
+                email_frame, 
+                text=email, 
+                wraplength=500
+            ).pack(side=tk.LEFT, fill=tk.X)
 
-    def load_example(self, email):
-        self.text_input.delete(1.0, tk.END)
-        self.text_input.insert(tk.END, email)
+    def load_model(self):
+        try:
+            self.model = load_model('spam_detector_model.h5')
+            with open('tokenizer.pickle', 'rb') as handle:
+                self.tokenizer = pickle.load(handle)
+        except Exception as e:
+            print(f"Error loading model: {e}")
+            self.model = None
+            self.tokenizer = None
+
+    def preprocess_text(self, text):
+        # Remove punctuation and convert to lowercase
+        text = text.lower()
+        text = re.sub(f'[{string.punctuation}]', '', text)
+        return text
 
     def check_spam(self):
-        email = self.text_input.get(1.0, tk.END).strip()
-        if not email:
+        if not self.model or not self.tokenizer:
+            self.show_result("Error: Model not loaded properly")
             return
 
-        # Clear previous results
+        text = self.text_input.get("1.0", tk.END).strip()
+        if not text:
+            self.show_result("Please enter some text")
+            return
+
+        processed_text = self.preprocess_text(text)
+        sequences = self.tokenizer.texts_to_sequences([processed_text])
+        padded = pad_sequences(sequences, maxlen=200)
+        
+        prediction = self.model.predict(padded)[0][0]
+        confidence = prediction if prediction >= 0.5 else 1 - prediction
+        
+        result = "SPAM" if prediction >= 0.5 else "NOT SPAM"
+        self.show_result(f"Result: {result}\nConfidence: {confidence:.2%}")
+
+    def show_result(self, message):
         for widget in self.result_frame.winfo_children():
             widget.destroy()
+        ttk.Label(self.result_frame, text=message).pack()
 
-        result = predict_spam(model, email, tokenizer)
-        
-        # Create result display
-        if result['is_spam']:
-            result_text = "SPAM DETECTED!"
-            color = "#ff4444"
-        else:
-            result_text = "NOT SPAM"
-            color = "#44aa44"
+    def load_example(self, example_text):
+        self.text_input.delete("1.0", tk.END)
+        self.text_input.insert("1.0", example_text)
+        self.check_spam()
 
-        ttk.Label(self.result_frame, 
-                 text=result_text,
-                 font=('Helvetica', 16, 'bold')).pack(pady=10)
+def main():
+    root = tk.Tk()
+    app = SpamDetectorGUI(root)
+    root.mainloop()
 
-        confidence_frame = ttk.Frame(self.result_frame)
-        confidence_frame.pack(fill=tk.X, pady=5)
-        
-        confidence_label = ttk.Label(confidence_frame, 
-                                   text=f"Confidence: {result['confidence']:.1%}")
-        confidence_label.pack()
-
-        # Create confidence bar
-        canvas = tk.Canvas(confidence_frame, height=20, width=200)
-        canvas.pack(pady=5)
-        canvas.create_rectangle(0, 0, 200, 20, fill='#dddddd')
-        canvas.create_rectangle(0, 0, 200 * result['confidence'], 20, fill=color)
-
-# Initialize the model and tokenizer
-model = load_model('spam_detector_model.h5')
-with open('tokenizer.pickle', 'rb') as handle:
-    tokenizer = pickle.load(handle)
-
-# Create and run GUI
-root = tk.Tk()
-app = SpamDetectorGUI(root)
-root.mainloop()
+if __name__ == "__main__":
+    main()
