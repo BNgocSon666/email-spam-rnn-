@@ -13,14 +13,19 @@ import string
 
 # Load và tiền xử lý dữ liệu
 def load_data():
-    # Đọc file CSV từ thư mục hiện tại
-    file_path = "spam.csv"
+    # Đọc file CSV tiếng Việt từ thư mục hiện tại
+    file_path = "vi_dataset.csv"
     df = pd.read_csv(file_path)
-    # Đổi tên cột để phù hợp với code
-    df = df.rename(columns={'Category': 'label', 'Message': 'text'})
+    # Các cột đã được đặt tên đúng (labels, texts_vi)
+    df = df.rename(columns={'labels': 'label', 'texts_vi': 'text'})
     return df
 
 def preprocess_text(text):
+    # Xử lý giá trị NaN
+    if pd.isna(text):
+        return ""
+    # Chuyển về string nếu không phải
+    text = str(text)
     # Chuyển text về chữ thường
     text = text.lower()
     # Loại bỏ dấu câu
@@ -46,11 +51,11 @@ def build_model(vocab_size, embedding_dim=100, max_length=200):
 
 def main():
     # Tải dữ liệu
-    print("Loading data...")
+    print("Đang tải dữ liệu tiếng Việt...")
     df = load_data()
     
     # Tiền xử lý văn bản
-    print("Preprocessing texts...")
+    print("Đang tiền xử lý văn bản tiếng Việt...")
     texts = df['text'].apply(preprocess_text).values
     labels = (df['label'] == 'spam').astype(int).values
     
@@ -69,7 +74,7 @@ def main():
     )
     
     # Xây dựng và huấn luyện mô hình
-    print("Building and training model...")
+    print("Đang xây dựng và huấn luyện mô hình...")
     model = build_model(vocab_size=max_words)
     
     history = model.fit(
@@ -79,30 +84,31 @@ def main():
         validation_split=0.2,
         verbose=1
     )
-      # Đánh giá mô hình
-    print("\nEvaluating model...")
+    
+    # Đánh giá mô hình
+    print("\nĐang đánh giá mô hình...")
     loss, accuracy = model.evaluate(X_test, y_test)
-    print(f"\nTest accuracy: {accuracy:.4f}")
+    print(f"\nĐộ chính xác kiểm thử: {accuracy:.4f}")
     
     # Vẽ biểu đồ loss và accuracy
     plt.figure(figsize=(12, 4))
     
     # Loss plot
     plt.subplot(1, 2, 1)
-    plt.plot(history.history['loss'], label='Training Loss')
-    plt.plot(history.history['val_loss'], label='Validation Loss')
-    plt.title('Model Loss')
+    plt.plot(history.history['loss'], label='Mất mát khi huấn luyện')
+    plt.plot(history.history['val_loss'], label='Mất mát khi kiểm định')
+    plt.title('Mất mát của mô hình')
     plt.xlabel('Epoch')
-    plt.ylabel('Loss')
+    plt.ylabel('Mất mát')
     plt.legend()
     
     # Accuracy plot
     plt.subplot(1, 2, 2)
-    plt.plot(history.history['accuracy'], label='Training Accuracy')
-    plt.plot(history.history['val_accuracy'], label='Validation Accuracy')
-    plt.title('Model Accuracy')
+    plt.plot(history.history['accuracy'], label='Độ chính xác khi huấn luyện')
+    plt.plot(history.history['val_accuracy'], label='Độ chính xác khi kiểm định')
+    plt.title('Độ chính xác của mô hình')
     plt.xlabel('Epoch')
-    plt.ylabel('Accuracy')
+    plt.ylabel('Độ chính xác')
     plt.legend()
     
     plt.tight_layout()
@@ -115,9 +121,9 @@ def main():
     
     plt.figure(figsize=(8, 6))
     sns.heatmap(cm, annot=True, fmt='d', cmap='Blues')
-    plt.title('Confusion Matrix')
-    plt.ylabel('True Label')
-    plt.xlabel('Predicted Label')
+    plt.title('Ma trận nhầm lẫn')
+    plt.ylabel('Nhãn thực tế')
+    plt.xlabel('Nhãn dự đoán')
     plt.savefig('confusion_matrix.png')
     plt.close()
     
@@ -128,11 +134,10 @@ def main():
     import pickle
     with open('tokenizer.pickle', 'wb') as handle:
         pickle.dump(tokenizer, handle, protocol=pickle.HIGHEST_PROTOCOL)
-    
-    print("\nModel saved as 'spam_detector_model.h5'")
-    print("Tokenizer saved as 'tokenizer.pickle'")
-    print("Training history plot saved as 'training_history.png'")
-    print("Confusion matrix plot saved as 'confusion_matrix.png'")
+    print("\nMô hình đã được lưu thành 'spam_detector_model.h5'")
+    print("Tokenizer đã được lưu thành 'tokenizer.pickle'")
+    print("Biểu đồ huấn luyện đã được lưu thành 'training_history.png'")
+    print("Ma trận nhầm lẫn đã được lưu thành 'confusion_matrix.png'")
 
 if __name__ == "__main__":
     main()

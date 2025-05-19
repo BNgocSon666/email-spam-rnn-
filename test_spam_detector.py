@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 from tensorflow.keras.models import load_model
 from tensorflow.keras.preprocessing.text import Tokenizer 
 from tensorflow.keras.preprocessing.sequence import pad_sequences
@@ -8,7 +9,13 @@ import pickle
 import re
 import string
 
-def preprocess_text(text):    # Convert text to lowercase
+def preprocess_text(text):
+    # Handle NaN values
+    if pd.isna(text):
+        return ""
+    # Convert to string if not already
+    text = str(text)
+    # Convert to lowercase
     text = text.lower()
     # Remove punctuation
     text = ''.join([char for char in text if char not in string.punctuation])
@@ -16,7 +23,8 @@ def preprocess_text(text):    # Convert text to lowercase
     text = re.sub('[0-9]+', '', text)
     return text
 
-def predict_spam(model, text, tokenizer, max_length=200):    # Preprocess the text
+def predict_spam(model, text, tokenizer, max_length=200):
+    # Preprocess the text
     text = preprocess_text(text)
     
     # Convert text to sequences of numbers
@@ -38,12 +46,11 @@ def predict_spam(model, text, tokenizer, max_length=200):    # Preprocess the te
 model = load_model('spam_detector_model.h5')
 
 # Load the saved tokenizer
-import pickle
 try:
     with open('tokenizer.pickle', 'rb') as handle:
         tokenizer = pickle.load(handle)
 except:
-    print("Could not load saved tokenizer, using new one")
+    print("Không thể tải tokenizer đã lưu, sử dụng tokenizer mới")
     tokenizer = Tokenizer()
 
 class ScrollableFrame(ttk.Frame):
@@ -67,7 +74,7 @@ class ScrollableFrame(ttk.Frame):
 class SpamDetectorGUI:
     def __init__(self, root):
         self.root = root
-        self.root.title("Spam Email Detector")
+        self.root.title("Phát hiện Email Spam")
         self.root.geometry("600x700")
 
         # Load model and tokenizer
@@ -82,12 +89,12 @@ class SpamDetectorGUI:
         input_frame = ttk.Frame(self.root, padding="10")
         input_frame.pack(fill=tk.X)
         
-        ttk.Label(input_frame, text="Enter email text:").pack()
+        ttk.Label(input_frame, text="Nhập nội dung email:").pack()
         
         self.text_input = scrolledtext.ScrolledText(input_frame, height=10, width=60)
         self.text_input.pack(pady=10)
 
-        ttk.Button(input_frame, text="Check Spam", command=self.check_spam).pack()
+        ttk.Button(input_frame, text="Kiểm tra Spam", command=self.check_spam).pack()
 
     def create_result_section(self):
         self.result_frame = ttk.Frame(self.root, padding="10")
@@ -96,23 +103,23 @@ class SpamDetectorGUI:
         self.result_label.pack()
 
     def create_examples_section(self):
-        examples_frame = ttk.LabelFrame(self.root, text="Example Emails", padding="10")
+        examples_frame = ttk.LabelFrame(self.root, text="Email Mẫu", padding="10")
         examples_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
         
         scrollable_frame = ScrollableFrame(examples_frame)
         scrollable_frame.pack(fill=tk.BOTH, expand=True)
 
         example_emails = [
-            "Congratulations! You've won $1 million in our promotion!",
-            "Hi, when is our team meeting scheduled?",
-            "URGENT: Your account has been compromised. Click here to verify.",
-            "Here are the documents you requested for the project.",
-            "HOT: Investment opportunity with 500% monthly returns!",
-            "Weekly progress report shows 80% completion of planned tasks.",
-            "Make money fast! Work from home opportunity!",
-            "Meeting reminder: Project status update at 2 PM",
-            "Your package has been delivered",
-            "WINNER!! You've been selected for a special prize!"
+            "Chúc mừng! Bạn đã trúng 1 tỷ đồng từ chương trình khuyến mãi!",
+            "Chào bạn, cuộc họp nhóm được lên lịch lúc nào vậy?",
+            "KHẨN CẤP: Tài khoản của bạn đã bị xâm phạm. Nhấp vào đây để xác minh.",
+            "Đây là tài liệu bạn yêu cầu cho dự án.",
+            "HOT: Cơ hội đầu tư với lợi nhuận 500% mỗi tháng!",
+            "Báo cáo tiến độ tuần cho thấy đã hoàn thành 80% công việc đã lên kế hoạch.",
+            "Kiếm tiền nhanh! Cơ hội làm việc tại nhà!",
+            "Nhắc nhở cuộc họp: Cập nhật trạng thái dự án lúc 14:00",
+            "Gói hàng của bạn đã được giao",
+            "NGƯỜI CHIẾN THẮNG!! Bạn đã được chọn nhận giải thưởng đặc biệt!"
         ]
 
         for email in example_emails:
@@ -121,7 +128,7 @@ class SpamDetectorGUI:
             
             ttk.Button(
                 email_frame, 
-                text="Try", 
+                text="Thử", 
                 command=lambda e=email: self.load_example(e)
             ).pack(side=tk.LEFT, padx=(0, 5))
             
@@ -137,24 +144,27 @@ class SpamDetectorGUI:
             with open('tokenizer.pickle', 'rb') as handle:
                 self.tokenizer = pickle.load(handle)
         except Exception as e:
-            print(f"Error loading model: {e}")
+            print(f"Lỗi khi tải mô hình: {e}")
             self.model = None
             self.tokenizer = None
 
     def preprocess_text(self, text):
-        # Remove punctuation and convert to lowercase
+        if pd.isna(text):
+            return ""
+        text = str(text)
         text = text.lower()
-        text = re.sub(f'[{string.punctuation}]', '', text)
+        text = ''.join([char for char in text if char not in string.punctuation])
+        text = re.sub('[0-9]+', '', text)
         return text
 
     def check_spam(self):
         if not self.model or not self.tokenizer:
-            self.show_result("Error: Model not loaded properly")
+            self.show_result("Lỗi: Không thể tải mô hình")
             return
 
         text = self.text_input.get("1.0", tk.END).strip()
         if not text:
-            self.show_result("Please enter some text")
+            self.show_result("Vui lòng nhập nội dung email")
             return
 
         processed_text = self.preprocess_text(text)
@@ -164,8 +174,8 @@ class SpamDetectorGUI:
         prediction = self.model.predict(padded)[0][0]
         confidence = prediction if prediction >= 0.5 else 1 - prediction
         
-        result = "SPAM" if prediction >= 0.5 else "NOT SPAM"
-        self.show_result(f"Result: {result}\nConfidence: {confidence:.2%}")
+        result = "SPAM" if prediction >= 0.5 else "KHÔNG PHẢI SPAM"
+        self.show_result(f"Kết quả: {result}\nĐộ tin cậy: {confidence:.2%}")
 
     def show_result(self, message):
         for widget in self.result_frame.winfo_children():
