@@ -12,7 +12,7 @@ This project implements an email spam detector using Recurrent Neural Networks (
 
 ## Requirements
 
-- Python 3.x
+- Python 3.11
 - TensorFlow
 - NumPy
 - Pandas
